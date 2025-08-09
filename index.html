@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="uz">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Oddiy Kalkulyator</title>
+    <style>
+         :root {
+            --bg: #f3f4f6;
+            --panel: #ffffff;
+            --btn: #e5e7eb;
+            --accent: #06b6d4
+        }
+        
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--bg);
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px
+        }
+        
+        .calc {
+            width: 320px;
+            background: var(--panel);
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden
+        }
+        
+        .display {
+            background: #111827;
+            color: #fff;
+            padding: 16px;
+            font-size: 28px;
+            text-align: right;
+            min-height: 60px
+        }
+        
+        .small {
+            font-size: 13px;
+            color: #aab0b8;
+            text-align: right;
+            padding: 6px 12px;
+            background: linear-gradient(180deg, #0b1220, #0f1724)
+        }
+        
+        .keys {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 12px;
+            background: transparent
+        }
+        
+        button {
+            padding: 14px;
+            border-radius: 8px;
+            border: 0;
+            background: var(--btn);
+            font-size: 16px;
+            cursor: pointer
+        }
+        
+        .op {
+            background: var(--accent);
+            color: #fff
+        }
+        
+        .wide {
+            grid-column: span 2
+        }
+        
+        .equals {
+            grid-row: span 2;
+            background: #10b981;
+            color: #fff;
+            font-weight: 700
+        }
+        
+        @media(max-width:360px) {
+            .calc {
+                width: 100%
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="calc" role="application" aria-label="Oddiy Kalkulyator">
+        <div class="small" id="history"></div>
+        <div class="display" id="display">0</div>
+
+        <div class="keys">
+            <button data-fn="clear">C</button>
+            <button data-fn="back">⌫</button>
+            <button data-val="(">(</button>
+            <button data-val=")">)</button>
+
+            <button data-val="7">7</button>
+            <button data-val="8">8</button>
+            <button data-val="9">9</button>
+            <button data-op="/">÷</button>
+
+            <button data-val="4">4</button>
+            <button data-val="5">5</button>
+            <button data-val="6">6</button>
+            <button data-op="*">×</button>
+
+            <button data-val="1">1</button>
+            <button data-val="2">2</button>
+            <button data-val="3">3</button>
+            <button data-op="-">−</button>
+
+            <button data-val="0" class="wide">0</button>
+            <button data-val=".">.</button>
+            <button data-op="+">+</button>
+
+            <button data-fn="equals" class="equals">=</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const display = document.getElementById('display');
+            const history = document.getElementById('history');
+            let expr = '';
+            let last = '';
+
+            function render() {
+                display.textContent = expr || '0';
+                history.textContent = last ? 'Oxirgi: ' + last : '';
+            }
+
+            function safeEval(s) {
+                // very small sanitisation: disallow letters
+                if (/[A-Za-z]/.test(s)) throw new Error('Noto\'g\'ri ifoda');
+                // replace symbols
+                const f = s.replace(/÷/g, '/').replace(/×/g, '*').replace(/−/g, '-');
+                // evaluate
+                return Function('"use strict"; return (' + f + ')')();
+            }
+
+            document.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const v = btn.dataset.val;
+                    const op = btn.dataset.op;
+                    const fn = btn.dataset.fn;
+                    if (v !== undefined) {
+                        expr += v;
+                        render();
+                        return;
+                    }
+                    if (op) {
+                        expr += op;
+                        render();
+                        return;
+                    }
+                    if (fn) {
+                        if (fn === 'clear') {
+                            expr = '';
+                            last = '';
+                            render();
+                            return;
+                        }
+                        if (fn === 'back') {
+                            expr = expr.slice(0, -1);
+                            render();
+                            return;
+                        }
+                        if (fn === 'equals') {
+                            try {
+                                if (!expr) return;
+                                const res = safeEval(expr);
+                                last = expr + ' = ' + res;
+                                expr = String(res);
+                                render();
+                            } catch (e) {
+                                display.textContent = e.message || 'Xato';
+                                setTimeout(() => {
+                                    expr = '';
+                                    render();
+                                }, 1200);
+                            }
+                        }
+                    }
+                });
+            });
+
+            // keyboard support
+            window.addEventListener('keydown', (e) => {
+                if (e.key.match(/^[0-9]$/)) {
+                    expr += e.key;
+                    render();
+                    return;
+                }
+                if (e.key === '.') {
+                    expr += '.';
+                    render();
+                    return;
+                }
+                if (e.key === 'Enter' || e.key === '=') {
+                    e.preventDefault();
+                    document.querySelector('[data-fn="equals"]').click();
+                    return;
+                }
+                if (e.key === 'Backspace') {
+                    document.querySelector('[data-fn="back"]').click();
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    document.querySelector('[data-fn="clear"]').click();
+                    return;
+                }
+                if (['+', '-', '/', '*', '(', ')'].includes(e.key)) {
+                    expr += e.key;
+                    render();
+                    return;
+                }
+            });
+
+            render();
+        })();
+    </script>
+
+</body>
+
+</html>
